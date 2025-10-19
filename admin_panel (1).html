@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Fruit - Admin Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .admin-container { max-width: 1400px; margin: 0 auto; }
+        
+        .admin-header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .admin-header h1 { color: #667eea; margin-bottom: 10px; }
+        
+        .admin-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .stat-card h3 { font-size: 14px; margin-bottom: 10px; opacity: 0.9; }
+        .stat-card .value { font-size: 32px; font-weight: bold; }
+        
+        .admin-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .admin-panel h2 { color: #333; margin-bottom: 15px; font-size: 20px; }
+        
+        .control-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .control-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        
+        .control-btn:hover { transform: translateY(-2px); }
+        .control-btn.start { background: #22c55e; color: white; }
+        .control-btn.stop { background: #ef4444; color: white; }
+        .control-btn.select { background: #667eea; color: white; }
+        
+        .fruit-bets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .fruit-bet-card {
+            background: #f9f9f9;
+            border: 3px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .fruit-bet-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .fruit-bet-card.selected {
+            border-color: #ffd700;
+            background: #fff9e6;
+            transform: scale(1.05);
+        }
+        
+        .fruit-bet-card .emoji { font-size: 52px; margin-bottom: 10px; }
+        .fruit-bet-card .name { font-weight: bold; margin-bottom: 5px; font-size: 16px; }
+        .fruit-bet-card .multiplier { color: #667eea; font-size: 14px; margin-bottom: 10px; }
+        .fruit-bet-card .total-bet { color: #22c55e; font-weight: bold; font-size: 22px; }
+        .fruit-bet-card .bet-count { color: #666; font-size: 12px; margin-top: 5px; }
+        
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .users-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+        }
+        
+        .users-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .users-table tr:hover { background: #f5f5f5; }
+        
+        .bet-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin: 2px;
+            display: inline-block;
+        }
+        
+        .history-item {
+            background: #f5f5f5;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .history-item .fruit-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .history-item .fruit-info .emoji { font-size: 32px; }
+        
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        
+        .status-indicator.connected { background: #22c55e; }
+    </style>
+</head>
+<body>
+    <div class="status-indicator" id="statusIndicator">
+        <i class="fas fa-circle"></i> Connecting...
+    </div>
+
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🎮 Lucky Fruit - Admin Control Panel</h1>
+            <p style="color: #666;">Round: <span id="adminRoundNumber">1</span> | Timer: <span id="adminTimer">45</span>s | Status: <span id="gameStatus">Waiting</span></p>
+        </div>
+
+        <div class="admin-stats">
+            <div class="stat-card">
+                <h3>Active Players</h3>
+                <div class="value" id="activePlayersCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Bets This Round</h3>
+                <div class="value">₹<span id="totalBetsAmount">0</span></div>
+            </div>
+            <div class="stat-card">
+                <h3>Betting Users</h3>
+                <div class="value" id="bettingUsersCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <div class="value" id="totalUsersCount">0</div>
+            </div>
+        </div>
+
+        <div class="admin-panel">
+            <h2>🎮 Game Controls</h2>
+            <div class="control-section">
+                <button class="control-btn start" onclick="startRound()">
+                    <i class="fas fa-play"></i> Start Round
+                </button>
+                <button class="control-btn stop" onclick="stopBetting()">
+                    <i class="fas fa-pause"></i> Stop Betting
+                </button>
+                <p style="margin-top: 15px; color: #666;">
+                    <i class="fas fa-info-circle"></i> Click on a fruit card below to select winner
+                </p>
+            </div>
+        </div>
+
+        <div class="admin-panel">
+            <h2>🍎 Fruit Bets Overview</h2>
+            <p style="color: #666; margin-bottom: 15px;">Click on a fruit to select it as the winner</p>
+            <div class="fruit-bets-grid" id="adminFruitBets"></div>
+        </div>
+
+        <div class="admin-panel">
+            <h2>👥 Active Users & Their Bets</h2>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Balance</th>
+                            <th>Today's Winnings</th>
+                            <th>Bets This Round</th>
+                            <th>Total Bet Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminUsersTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="admin-panel">
+            <h2>📊 Round History</h2>
+            <div id="adminRoundHistory"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+        let socket = null;
+        let currentRoundBets = {};
+        let allUsers = [];
+        
+        const fruits = [
+            { id: 'apple', emoji: '🍎', name: 'Apple', multiplier: 2 },
+            { id: 'banana', emoji: '🍌', name: 'Banana', multiplier: 3 },
+            { id: 'cherry', emoji: '🍒', name: 'Cherry', multiplier: 4 },
+            { id: 'grape', emoji: '🍇', name: 'Grape', multiplier: 2.5 },
+            { id: 'orange', emoji: '🍊', name: 'Orange', multiplier: 3 },
+            { id: 'watermelon', emoji: '🍉', name: 'Melon', multiplier: 5 },
+            { id: 'strawberry', emoji: '🍓', name: 'Berry', multiplier: 3.5 },
+            { id: 'lemon', emoji: '🍋', name: 'Lemon', multiplier: 4.5 }
+        ];
+
+        // Connect WebSocket
+        function connectWebSocket() {
+            socket = io(API_URL);
+            
+            socket.on('connect', () => {
+                console.log('Admin connected to server');
+                document.getElementById('statusIndicator').className = 'status-indicator connected';
+                document.getElementById('statusIndicator').innerHTML = '<i class="fas fa-circle"></i> Connected';
+                loadAdminData();
+            });
+            
+            socket.on('gameState', (data) => {
+                document.getElementById('adminRoundNumber').textContent = data.currentRound;
+                document.getElementById('adminTimer').textContent = data.timer;
+                document.getElementById('activePlayersCount').textContent = data.activeUsers;
+                document.getElementById('gameStatus').textContent = data.bettingEnabled ? 'Betting Open' : 'Betting Closed';
+            });
+            
+            socket.on('timerUpdate', (data) => {
+                document.getElementById('adminTimer').textContent = data.timer;
+            });
+            
+            socket.on('newBet', (data) => {
+                console.log('New bet received:', data);
+                if (!currentRoundBets[data.fruitId]) {
+                    currentRoundBets[data.fruitId] = [];
+                }
+                currentRoundBets[data.fruitId].push(data);
+                updateFruitBets();
+                updateStats();
+            });
+            
+            socket.on('roundStarted', (data) => {
+                currentRoundBets = {};
+                updateFruitBets();
+                updateStats();
+            });
+        }
+
+        // Load Admin Data
+        async function loadAdminData() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/users`);
+                const data = await response.json();
+                if (data.success) {
+                    allUsers = data.users;
+                    updateUsersTable();
+                    updateStats();
+                }
+                
+                const historyResponse = await fetch(`${API_URL}/api/rounds/history`);
+                const historyData = await historyResponse.json();
+                if (historyData.success) {
+                    updateRoundHistory(historyData.rounds);
+                }
+            } catch (error) {
+                console.error('Error loading admin data:', error);
+            }
+        }
+
+        // Update Fruit Bets Display
+        function updateFruitBets() {
+            const container = document.getElementById('adminFruitBets');
+            container.innerHTML = '';
+            
+            fruits.forEach(fruit => {
+                const bets = currentRoundBets[fruit.id] || [];
+                const totalBet = bets.reduce((sum, bet) => sum + bet.amount, 0);
+                const betCount = bets.length;
+                
+                const card = document.createElement('div');
+                card.className = 'fruit-bet-card';
+                card.innerHTML = `
+                    <div class="emoji">${fruit.emoji}</div>
+                    <div class="name">${fruit.name}</div>
+                    <div class="multiplier">${fruit.multiplier}x</div>
+                    <div class="total-bet">₹${totalBet}</div>
+                    <div class="bet-count">${betCount} bet${betCount !== 1 ? 's' : ''}</div>
+                `;
+                card.onclick = () => selectWinner(fruit.id);
+                container.appendChild(card);
+            });
+        }
+
+        // Update Users Table
+        function updateUsersTable() {
+            const tbody = document.getElementById('adminUsersTable');
+            tbody.innerHTML = '';
+            
+            allUsers.forEach(user => {
+                const userBets = [];
+                let totalBetAmount = 0;
+                
+                Object.keys(currentRoundBets).forEach(fruitId => {
+                    const bets = currentRoundBets[fruitId].filter(b => b.userId === user.userId);
+                    bets.forEach(bet => {
+                        const fruit = fruits.find(f => f.id === fruitId);
+                        userBets.push(`<span class="bet-badge">${fruit.emoji} ₹${bet.amount}</span>`);
+                        totalBetAmount += bet.amount;
+                    });
+                });
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${user.userId}</td>
+                    <td>${user.name}</td>
+                    <td>₹${user.balance}</td>
+                    <td>₹${user.todayWinnings}</td>
+                    <td>${userBets.join(' ') || '-'}</td>
+                    <td><strong>₹${totalBetAmount}</strong></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Update Stats
+        function updateStats() {
+            let totalBets = 0;
+            let bettingUsers = new Set();
+            
+            Object.values(currentRoundBets).forEach(bets => {
+                bets.forEach(bet => {
+                    totalBets += bet.amount;
+                    bettingUsers.add(bet.userId);
+                });
+            });
+            
+            document.getElementById('totalBetsAmount').textContent = totalBets;
+            document.getElementById('bettingUsersCount').textContent = bettingUsers.size;
+            document.getElementById('totalUsersCount').textContent = allUsers.length;
+        }
+
+        // Update Round History
+        function updateRoundHistory(rounds) {
+            const container = document.getElementById('adminRoundHistory');
+            container.innerHTML = '';
+            
+            if (rounds.length === 0) {
+                container.innerHTML = '<p style="color: #666;">No rounds played yet</p>';
+                return;
+            }
+            
+            rounds.forEach(round => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <div class="fruit-info">
+                        <div class="emoji">${round.winningFruit.emoji}</div>
+                        <div>
+                            <strong>Round ${round.roundNumber}</strong><br>
+                            <span style="color: #666;">${round.winningFruit.name} (${round.winningFruit.multiplier}x)</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div><strong>${round.totalWinners || 0}</strong> winners</div>
+                        <div style="color: #666; font-size: 12px;">${round.totalBets || 0} total bets</div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Start Round
+        async function startRound() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/start-round`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Round started successfully!');
+                }
+            } catch (error) {
+                console.error('Error starting round:', error);
+                alert('Error starting round');
+            }
+        }
+
+        // Stop Betting
+        async function stopBetting() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/stop-betting`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Betting stopped! Now select a winner.');
+                }
+            } catch (error) {
+                console.error('Error stopping betting:', error);
+                alert('Error stopping betting');
+            }
+        }
+
+        // Select Winner
+        async function selectWinner(fruitId) {
+            const fruit = fruits.find(f => f.id === fruitId);
+            
+            if (!confirm(`Select ${fruit.name} ${fruit.emoji} as winner?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/admin/select-winner`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fruitId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Highlight selected fruit
+                    document.querySelectorAll('.fruit-bet-card').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                    event.target.closest('.fruit-bet-card').classList.add('selected');
+                    
+                    alert(`Winner selected: ${fruit.name}! ${data.totalWinners} winners. New round starting...`);
+                    
+                    setTimeout(() => {
+                        loadAdminData();
+                        currentRoundBets = {};
+                        updateFruitBets();
+                        updateUsersTable();
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Error selecting winner:', error);
+                alert('Error selecting winner');
+            }
+        }
+
+        // Initialize
+        window.onload = () => {
+            console.log('Admin panel loaded');
+            connectWebSocket();
+            renderFruitBets();
+            
+            // Refresh data every 5 seconds
+            setInterval(() => {
+                loadAdminData();
+            }, 5000);
+        };
+
+        // Initial render of fruit bets
+        function renderFruitBets() {
+            updateFruitBets();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Fruit - Multiplayer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container { max-width: 500px; margin: 0 auto; padding: 10px; }
+        
+        .login-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-box {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .login-box h2 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .user-details h3 { color: white; font-size: 18px; }
+        .user-details p { color: rgba(255, 255, 255, 0.9); font-size: 12px; }
+        
+        .game-container {
+            background: linear-gradient(180deg, #6b3e0f 0%, #3d2208 100%);
+            border-radius: 20px;
+            padding: 20px 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            border: 6px solid #d4a05c;
+            margin-bottom: 80px;
+        }
+        
+        .game-title { text-align: center; margin-bottom: 15px; }
+        .game-title h1 {
+            color: #ffd700;
+            font-size: 32px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .timer-container {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 15px;
+            border: 3px solid #ffd700;
+        }
+        
+        .timer-display {
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffd700;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .fruit-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .fruit-option {
+            background: linear-gradient(135deg, #8B4513 0%, #654321 100%);
+            border: 3px solid transparent;
+            border-radius: 12px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .fruit-option.selected {
+            border-color: #ffd700;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            transform: scale(1.05);
+        }
+        
+        .fruit-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .fruit-emoji { font-size: 40px; margin-bottom: 5px; }
+        .fruit-name { color: white; font-size: 11px; font-weight: bold; }
+        .fruit-multiplier { color: #ffd700; font-size: 10px; }
+        
+        .fruit-bet-amount {
+            background: rgba(0, 0, 0, 0.6);
+            color: #ffd700;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .bet-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .bet-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            font-size: 16px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            margin-bottom: 8px;
+        }
+        
+        .quick-bet-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        
+        .quick-bet-btn {
+            padding: 8px;
+            background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .result-display {
+            background: linear-gradient(135deg, #8B4513 0%, #654321 100%);
+            border: 4px solid #ffd700;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .result-fruit {
+            font-size: 80px;
+            animation: fruitSpin 0.5s ease-out;
+        }
+        
+        @keyframes fruitSpin {
+            0% { transform: scale(0) rotate(0deg); }
+            50% { transform: scale(1.2) rotate(180deg); }
+            100% { transform: scale(1) rotate(360deg); }
+        }
+        
+        .result-text { color: #ffd700; font-size: 20px; font-weight: bold; }
+        .win-amount { color: #90EE90; font-size: 28px; font-weight: bold; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #8B4513 0%, #654321 100%);
+            border: 2px solid #ffd700;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        
+        .stat-label { color: #fff3cd; font-size: 12px; }
+        .stat-value {
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .hidden { display: none !important; }
+        
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        .status-indicator.connected { background: #22c55e; }
+        .status-indicator.disconnected { background: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="status-indicator disconnected" id="statusIndicator">
+        <i class="fas fa-circle"></i> Connecting...
+    </div>
+
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <h2>🍓 Lucky Fruit</h2>
+            <div class="input-group">
+                <label>Enter Your Name</label>
+                <input type="text" id="userName" placeholder="Enter your name">
+            </div>
+            <div class="input-group">
+                <label>Mobile Number (Optional)</label>
+                <input type="tel" id="userPhone" placeholder="Enter 10 digit number" maxlength="10">
+            </div>
+            <button class="btn-primary" onclick="handleLogin()">Start Playing</button>
+        </div>
+    </div>
+
+    <div class="container hidden" id="gameScreen">
+        <div class="header">
+            <div class="user-info">
+                <div class="user-avatar">👤</div>
+                <div class="user-details">
+                    <h3 id="displayName">Player</h3>
+                    <p id="displayId">ID: XXXX</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <div class="game-title">
+                <h1>🍓 Lucky Fruit</h1>
+                <p style="color: #fff3cd; font-size: 14px;">Round <span id="roundNumber">1</span> | Players: <span id="activePlayers">0</span></p>
+            </div>
+
+            <div class="timer-container">
+                <p style="color: white; font-size: 14px;">⏱️ Next Spin In</p>
+                <div class="timer-display" id="timer">45</div>
+            </div>
+
+            <div class="fruit-grid" id="fruitGrid"></div>
+
+            <div class="bet-section">
+                <p style="color: #ffd700; text-align: center; font-size: 14px; margin-bottom: 8px;">💰 Bet Amount</p>
+                <input type="number" class="bet-input" id="betAmount" value="100" min="10">
+                <div class="quick-bet-buttons">
+                    <button class="quick-bet-btn" onclick="setBetAmount(100)">100</button>
+                    <button class="quick-bet-btn" onclick="setBetAmount(500)">500</button>
+                    <button class="quick-bet-btn" onclick="setBetAmount(1000)">1000</button>
+                    <button class="quick-bet-btn" onclick="setBetAmount(2000)">2000</button>
+                </div>
+            </div>
+
+            <div class="result-display" id="resultDisplay">
+                <p class="result-text">Waiting for spin...</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <p class="stat-label">Balance</p>
+                    <div class="stat-value">
+                        <i class="fas fa-coins"></i>
+                        <span id="balance">2000</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Today's Winnings</p>
+                    <div class="stat-value">
+                        <i class="fas fa-trophy"></i>
+                        <span id="todayWinnings">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+        let socket = null;
+        let currentUser = null;
+        let selectedFruits = {};
+        let bettingEnabled = true;
+        
+        const fruits = [
+            { id: 'apple', emoji: '🍎', name: 'Apple', multiplier: 2 },
+            { id: 'banana', emoji: '🍌', name: 'Banana', multiplier: 3 },
+            { id: 'cherry', emoji: '🍒', name: 'Cherry', multiplier: 4 },
+            { id: 'grape', emoji: '🍇', name: 'Grape', multiplier: 2.5 },
+            { id: 'orange', emoji: '🍊', name: 'Orange', multiplier: 3 },
+            { id: 'watermelon', emoji: '🍉', name: 'Melon', multiplier: 5 },
+            { id: 'strawberry', emoji: '🍓', name: 'Berry', multiplier: 3.5 },
+            { id: 'lemon', emoji: '🍋', name: 'Lemon', multiplier: 4.5 }
+        ];
+
+        // Connect to WebSocket
+        function connectWebSocket() {
+            socket = io(API_URL);
+            
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                document.getElementById('statusIndicator').className = 'status-indicator connected';
+                document.getElementById('statusIndicator').innerHTML = '<i class="fas fa-circle"></i> Connected';
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                document.getElementById('statusIndicator').className = 'status-indicator disconnected';
+                document.getElementById('statusIndicator').innerHTML = '<i class="fas fa-circle"></i> Disconnected';
+            });
+            
+            socket.on('gameState', (data) => {
+                console.log('Game state:', data);
+                document.getElementById('roundNumber').textContent = data.currentRound;
+                document.getElementById('timer').textContent = data.timer;
+                document.getElementById('activePlayers').textContent = data.activeUsers;
+                bettingEnabled = data.bettingEnabled;
+                updateFruitGrid();
+            });
+            
+            socket.on('timerUpdate', (data) => {
+                document.getElementById('timer').textContent = data.timer;
+            });
+            
+            socket.on('roundStarted', (data) => {
+                console.log('Round started:', data);
+                document.getElementById('roundNumber').textContent = data.roundNumber;
+                document.getElementById('timer').textContent = data.timer;
+                bettingEnabled = true;
+                selectedFruits = {};
+                updateFruitGrid();
+                document.getElementById('resultDisplay').innerHTML = '<p class="result-text">Place your bets!</p>';
+            });
+            
+            socket.on('bettingStopped', () => {
+                console.log('Betting stopped');
+                bettingEnabled = false;
+                updateFruitGrid();
+                alert('Betting is now closed! Waiting for result...');
+            });
+            
+            socket.on('roundResult', (data) => {
+                console.log('Round result:', data);
+                showResult(data.winningFruit);
+            });
+            
+            socket.on('betPlaced', (data) => {
+                if (data.success) {
+                    currentUser.balance = data.newBalance;
+                    document.getElementById('balance').textContent = currentUser.balance;
+                    console.log('Bet placed successfully');
+                }
+            });
+            
+            socket.on('betError', (data) => {
+                alert(data.message);
+                console.error('Bet error:', data.message);
+            });
+            
+            socket.on('newBet', (data) => {
+                console.log('New bet placed by user:', data);
+            });
+        }
+
+        // Login Handler
+        async function handleLogin() {
+            const name = document.getElementById('userName').value.trim();
+            const phone = document.getElementById('userPhone').value.trim();
+            
+            if (!name) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = data.user;
+                    document.getElementById('displayName').textContent = currentUser.name;
+                    document.getElementById('displayId').textContent = 'ID: ' + currentUser.userId;
+                    document.getElementById('balance').textContent = currentUser.balance;
+                    document.getElementById('todayWinnings').textContent = currentUser.todayWinnings;
+                    
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('gameScreen').classList.remove('hidden');
+                    
+                    connectWebSocket();
+                    renderFruitGrid();
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Connection error. Please check if server is running.');
+            }
+        }
+
+        // Render Fruit Grid
+        function renderFruitGrid() {
+            const grid = document.getElementById('fruitGrid');
+            grid.innerHTML = '';
+            
+            fruits.forEach(fruit => {
+                const div = document.createElement('div');
+                div.className = 'fruit-option';
+                div.innerHTML = `
+                    <div class="fruit-emoji">${fruit.emoji}</div>
+                    <div class="fruit-name">${fruit.name}</div>
+                    <div class="fruit-multiplier">${fruit.multiplier}x</div>
+                    <div class="fruit-bet-amount">₹0</div>
+                `;
+                div.onclick = () => toggleFruit(fruit.id, div);
+                grid.appendChild(div);
+            });
+        }
+
+        // Update Fruit Grid
+        function updateFruitGrid() {
+            const options = document.querySelectorAll('.fruit-option');
+            options.forEach(option => {
+                if (!bettingEnabled) {
+                    option.classList.add('disabled');
+                } else {
+                    option.classList.remove('disabled');
+                }
+            });
+        }
+
+        // Toggle Fruit Selection
+        function toggleFruit(fruitId, element) {
+            if (!bettingEnabled) {
+                alert('Betting is closed!');
+                return;
+            }
+            
+            const betAmount = parseInt(document.getElementById('betAmount').value);
+            
+            if (betAmount < 10) {
+                alert('Minimum bet is ₹10');
+                return;
+            }
+            
+            if (betAmount > currentUser.balance) {
+                alert('Insufficient balance!');
+                return;
+            }
+            
+            if (selectedFruits[fruitId]) {
+                // Deselect
+                delete selectedFruits[fruitId];
+                element.classList.remove('selected');
+                element.querySelector('.fruit-bet-amount').style.display = 'none';
+            } else {
+                // Check max 6 selections
+                if (Object.keys(selectedFruits).length >= 6) {
+                    alert('Maximum 6 fruits allowed!');
+                    return;
+                }
+                
+                // Select and place bet
+                selectedFruits[fruitId] = betAmount;
+                element.classList.add('selected');
+                element.querySelector('.fruit-bet-amount').textContent = '₹' + betAmount;
+                element.querySelector('.fruit-bet-amount').style.display = 'block';
+                
+                // Send bet to server
+                socket.emit('placeBet', {
+                    userId: currentUser.userId,
+                    userName: currentUser.name,
+                    fruitId: fruitId,
+                    amount: betAmount
+                });
+            }
+        }
+
+        // Set Bet Amount
+        function setBetAmount(amount) {
+            document.getElementById('betAmount').value = amount;
+        }
+
+        // Show Result
+        function showResult(winningFruit) {
+            const resultDisplay = document.getElementById('resultDisplay');
+            resultDisplay.innerHTML = `
+                <div class="result-fruit">${winningFruit.emoji}</div>
+                <div class="result-text">${winningFruit.name} Wins!</div>
+            `;
+            
+            // Check if user won
+            if (selectedFruits[winningFruit.id]) {
+                const winAmount = selectedFruits[winningFruit.id] * winningFruit.multiplier;
+                resultDisplay.innerHTML += `
+                    <div class="win-amount">+₹${winAmount}</div>
+                    <p style="color: #90EE90; font-size: 16px;">Congratulations! 🎉</p>
+                `;
+            } else {
+                resultDisplay.innerHTML += `
+                    <p style="color: #ff6b6b; font-size: 16px;">Better luck next time!</p>
+                `;
+            }
+            
+            // Refresh user balance
+            setTimeout(async () => {
+                try {
+                    const response = await fetch(`${API_URL}/api/user/${currentUser.userId}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        currentUser = data.user;
+                        document.getElementById('balance').textContent = currentUser.balance;
+                        document.getElementById('todayWinnings').textContent = currentUser.todayWinnings;
+                    }
+                } catch (error) {
+                    console.error('Error fetching user data:', error);
+                }
+            }, 1000);
+        }
+
+        // Initialize
+        window.onload = () => {
+            console.log('App loaded');
+        };
+    </script>
+</body>
+</html>
